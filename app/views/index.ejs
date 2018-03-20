@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html ng-app="MyPhotos">
+<head>
+    <title>MyPhotos</title>
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <!-- <link rel="stylesheet" href="css/bootstrap.light.css"> -->
+    <link rel="stylesheet" href="libs/font-awesome/css/font-awesome.css">
+    <link rel="stylesheet" href="libs/angular-growl-v2/build/angular-growl.min.css">
+    <link rel="stylesheet" href="css/navbar-fixed-side.css">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body ng-controller="mainController" class="scrollbar-3">
+
+  <div class="container-fluid" ng-cloak>
+
+    <!-- <div class=""> -->
+
+      <div class="sidebar">
+        <nav class="navbar navbar-default navbar-fixed-side scrollbar-3">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" ng-click="isNavbarCollapsed = !isNavbarCollapsed">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <b><a class="navbar-brand" href="">My<span class="text-success">Photos</span></a></b>
+          </div>
+
+          <div class="collapse navbar-collapse" ng-class="{'collapse': isNavbarCollapsed}">
+            <ul class="nav navbar-nav">
+
+              <li ng-class="{'active': isSectionActive('photos')}"><a href="" ng-click="photoScope={};setSectionActive('photos',true)"><i class="fa fa-file-photo-o fa-fw"></i> Photos <span ng-show="photosCount > 0" class="badge" style="float: right;">{{photosCount}}</span></a></li>
+
+              <li ng-class="{'active': isSectionActive('folders')}"><a href="" ng-click="setSectionActive('folders',true)"><i class="fa fa-folder fa-fw"></i> Folders <span ng-show="foldersCount > 0" class="badge" style="float: right;">{{foldersCount}}</span></a></li>
+
+              <li ng-class="{'active': isSectionActive('collections')}"><a href="" ng-click="setSectionActive('collections',true)"><i class="fa fa-clone fa-fw"></i> Collections <span ng-show="collectionsCount > 0" class="badge" style="float: right;">{{collectionsCount}}</span></a></li>
+
+              <li ng-class="{'active': isSectionActive('favorites')}"><a href="" ng-click="setSectionActive('favorites',true)"><i class="fa fa-heart fa-fw"></i> Favorites <span ng-show="favoritesCount > 0" class="badge" style="float: right;">{{favoritesCount}}</span></a></li>
+
+              <li ng-class="{'active': isSectionActive('import')}"><a href="" ng-click="setSectionActive('import',true)"> <span ng-show="importQueue.length > 0" class="badge" style="float: right;">{{importQueue.length}}</span> <i class="fa fa-plus fa-fw"></i> <span ng-show="!importing">Import</span><span ng-show="importing">Importing...</span> <span ng-show="importing && currentImport.progress && currentImport.progress.total && currentImport.progress.total > 0">({{currentImport.progress.current}}/{{currentImport.progress.total}})</span></a></li>
+
+              <li ng-class="{'active': isSectionActive('settings')}"><a href="" ng-click="setSectionActive('settings')"><i class="fa fa-cogs fa-fw"></i> Settings</a></li>
+
+              <li class="divider"></li>
+              <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="">Moments</a>
+
+                <ul class="dropdown-menu">
+                  <li ng-repeat="yearstat in dateStats" ng-class="{'active': isDateScopeActive(yearstat)}" ng-if="yearstat.count > 0">
+                    <a href="" class="" ng-click="loadPhotosOfDateStat(yearstat)"><span class="badge" style="float: right;">{{yearstat.count}}</span><b ng-class="{'caret': yearstat.expanded, 'right-caret': !yearstat.expanded}" ng-if="yearstat.months"></b> {{yearstat.date | date: 'yyyy'}} </a>
+
+                    <ul class="dropdown-menu sidebar-months" ng-if="yearstat.months && yearstat.expanded">
+                      <li ng-repeat="monthstat in yearstat.months" ng-class="{'active': isDateScopeActive(monthstat)}">
+                        <a href="" class="sidebar-month" ng-click="loadPhotosOfDateStat(monthstat)" style="padding-left: 40px;"><span class="badge" style="float: right;">{{monthstat.count}}</span><b  ng-class="{'caret': monthstat.expanded, 'right-caret': !monthstat.expanded}" ng-if="monthstat.days"></b> {{monthstat.date | date: 'MMMM'}} </a>
+
+                        <ul class="dropdown-menu sidebar-days" ng-if="monthstat.days && monthstat.expanded">
+                          <li ng-repeat="daystat in monthstat.days" ng-class="{'active': isDateScopeActive(daystat)}">
+                            <a href="" class="sidebar-day" ng-click="loadPhotosOfDateStat(daystat)" style="padding-left: 60px;"><span class="badge" style="float: right;">{{daystat.count}}</span>{{daystat.date | date: 'MMMM dd'}} </a>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </li>
+                  <li class="divider"></li>
+                </ul>
+              </li>
+              <!-- <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="#">TAGS <b class="caret"></b></a>
+                <ul class="dropdown-menu">
+                  <li ng-repeat="tagstat in tagStats"><a href="">{{tagstat.tag}} <span class="badge" style="float: right;">{{tagstat.count}}</span></a></li>
+                  <li class="divider"></li>
+                </ul>
+              </li> -->
+            </ul>
+          </div><!-- /.navbar-collapse -->
+        </nav>
+      </div><!-- sidebar -->
+
+      <div class="main">
+        <div class="fixed-topbar clearfix">
+
+          <div ng-show="isSectionActive('photos') || isSectionActive('moments')">
+            <div style="float: right;margin-top: 5px;">
+              <!-- <span ng-show="loading"><i class="fa fa-spinner fa-fw fa-spin"></i></span>  -->
+              <a href="" class="btn btn-default btn-sm" ng-click="showImportDialog('photos')" 
+                title="Import new photos"><i class="fa fa-plus"></i></a>
+              <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': photoFiltering}" 
+                ng-click="togglePhotoFilter()" title="Toggle filter"><i class="fa fa-search"></i></a> -->
+              <a href="" class="btn btn-default btn-sm" ng-click="togglePhotoViewMode()" title="Toggle view mode">
+                <span ng-show="photoViewMode == 'grid'"><i class="fa fa-th"></i></span>
+                <span ng-show="photoViewMode == 'details'"><i class="fa fa-th-list"></i></span>
+                <span ng-show="photoViewMode == 'list'"><i class="fa fa-reorder"></i></span>
+              </a>
+              <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': photoActionsEnable}" ng-click="togglePhotoActions()" title="Toggle actions"><i class="fa fa-edit"></i></a> -->
+              <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': photoSettingsShowing}" ng-click="togglePhotoSettings()" title="Toggle settings"><i class="fa fa-cog"></i></a> -->
+
+              <a class="btn btn-default btn-sm" ng-class="{'active': photoInfoShowing}" ng-click="togglePhotoInfo()" title="Toggle photo info"><i class="fa fa-info fa-fw"></i></a>
+              
+              <div class="btn-group">
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortBy('name'),}" ng-click="setPhotoSortBy('name')" title="Sort by name">N</a>
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortBy('size')}" ng-click="setPhotoSortBy('size')" title="Sort by size">S</a>
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortBy('created')}" ng-click="setPhotoSortBy('created')" title="Sort by created date">C</a>
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortBy('added_at')}" ng-click="setPhotoSortBy('added_at')" title="Sort by added date">A</a>
+              </div>
+
+              <div class="btn-group">
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortOrder('asc'),}" ng-click="setPhotoSortOrder('asc')"><i class="fa fa-long-arrow-up fa-fw"></i></a>
+                <a href="" class="btn btn-default btn-sm" ng-class="{'active': isPhotoSortOrder('desc')}" ng-click="setPhotoSortOrder('desc')"><i class="fa fa-long-arrow-down fa-fw"></i></a>
+              </div>
+            </div>
+
+            <h3 style="display: inline;margin-bottom: 0;">
+              <span ng-if="!photoScope.title">Photos</span><span ng-if="photoScope.title">{{photoScope.title}}</span>
+            </h3>
+            
+            <form id="filterPhotoForm" class="filter-form" ng-submit="filterPhotos()">
+              <div style="position: relative;">
+                <input id="photoFilter" name="itemfilter" type="text" class="form-control" 
+                  placeholder="Find photo by name " ng-model="photoFilter" ng-change="filterPhotos()">
+                <span class="form-control-clear glyphicon glyphicon-remove form-control-feedback" ng-class="{'hidden': photoFilter==''}" ng-click="clearPhotoFilter()"></span>
+              </div>
+            </form>
+
+            <span ng-hide="loading" style="color: #999;font-size: 14px;">{{photoTotal}}</span> 
+            <span ng-show="loading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+          </div><!-- photos -->
+
+          <div ng-show="isSectionActive('folders')">
+            <div ng-show="!folderShowing">
+              <div style="float: right;">
+                <a href="" class="btn btn-default btn-sm" ng-click="showImportDialog('folder')" 
+                  title="Import new folders"><i class="fa fa-plus"></i></a>
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': folderFiltering}" ng-click="toggleFolderFilter()" title="Toggle filter"><i class="fa fa-search"></i></a> -->
+                <a href="" class="btn btn-default btn-sm" ng-click="toggleFolderViewMode()" title="Toggle view mode">
+                  <span ng-show="folderViewMode == 'grid'"><i class="fa fa-th"></i></span>
+                  <span ng-show="folderViewMode == 'details'"><i class="fa fa-th-list"></i></span>
+                  <span ng-show="folderViewMode == 'list'"><i class="fa fa-reorder"></i></span>
+                </a>
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': folderActionsEnable}" ng-click="toggleFolderActions()" title="Toggle actions"><i class="fa fa-edit"></i></a> -->
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': folderSettingsShowing}" ng-click="toggleFolderSettings()" title="Toggle settings"><i class="fa fa-cog"></i></a> -->
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortBy('name')}" ng-click="setFolderSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortBy('size')}" ng-click="setFolderSortBy('size')" title="Sort by size">S</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortBy('photos_count')}" ng-click="setFolderSortBy('photos_count')" title="Sort by photos count">P</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortBy('added_at')}" ng-click="setFolderSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortOrder('asc'),}" ng-click="setFolderSortOrder('asc')"><i class="fa fa-long-arrow-up fa-fw"></i></a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderSortOrder('desc')}" ng-click="setFolderSortOrder('desc')"><i class="fa fa-long-arrow-down fa-fw"></i></a>
+                </div>
+              </div>
+
+              <h3 style="display: inline;margin-bottom: 0;">Folders
+              </h3>
+
+              <form id="filterFolderForm" class="filter-form" ng-submit="filterFolders()">
+                <div style="position: relative;">
+                  <input id="folderFilter" name="folderFilter" type="text" class="form-control" 
+                    placeholder="Find folder by name " ng-model="folderFilter" ng-change="filterFolders()">
+                  <span class="form-control-clear glyphicon glyphicon-remove form-control-feedback" ng-class="{'hidden': folderFilter==''}" ng-click="clearFolderFilter()"></span>
+                </div>
+              </form>
+
+              <span ng-hide="loading" style="color: #999;font-size: 14px;">{{folderTotal}}</span> 
+              <span ng-show="loading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+            </div><!-- !folderShowing -->
+
+            <div ng-show="folderShowing">
+              <div style="position: absolute;top: 15px;right: 0;">
+
+                <a class="btn btn-default btn-sm" ng-click="openLocationExternal(folder.path)" title="Open location of folder"><i class="fa fa-share-square-o fa-fw"></i></a>
+
+                <a class="btn btn-default btn-sm" ng-class="{'active': folderPhotoInfoShowing}" ng-click="toggleFolderPhotoInfo()" title="Toggle photo info"><i class="fa fa-info fa-fw"></i></a>
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortBy('name')}" ng-click="setFolderPhotoSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortBy('size')}" ng-click="setFolderPhotoSortBy('size')" title="Sort by size">S</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortBy('created')}" ng-click="setFolderPhotoSortBy('created')" title="Sort by created date">C</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortBy('added_at')}" ng-click="setFolderPhotoSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortOrder('asc'),}" ng-click="setFolderPhotoSortOrder('asc')"><i class="fa fa-long-arrow-up fa-fw"></i></a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFolderPhotoSortOrder('desc')}" ng-click="setFolderPhotoSortOrder('desc')"><i class="fa fa-long-arrow-down fa-fw"></i></a>
+                </div>
+              </div>
+
+              <a href="" class="back-button" 
+                style="text-decoration: none;font-size: 18px;position: absolute;left: 0;top: 15px;" 
+                ng-click="closeFolderDetails()"><i class="fa fa-chevron-left fa-fw"></i> <span ng-show="folderLoading"><i class="fa fa-spinner fa-fw fa-spin"></i></span><span ng-show="!folderLoading"><span ng-if="folder._parent && folder._parent.name">{{folder._parent.name | limitTo:20}}{{folder._parent.name.length>20?'...':''}}</span><span ng-if="!folder._parent || !folder._parent.name">Folders</span></span></a>
+
+              <h3 style="font-size: 24px;margin: 0 auto;padding-top: 0;margin-top: -5px;text-align: center;margin-left: 300px;margin-right: 300px;overflow: hidden;text-overflow: ellipsis;max-height: 30px;">
+                <span style="font-size: 16px;"><b>{{folder.name | limitTo:80}}{{folder.name.length>80?'...':''}}</b></span>
+              </h3>
+
+              <p style="font-size: 14px;color: #777;text-align: center;margin-bottom: 0;">
+                <span ng-if="folder.folders_count > 1">{{folder.folders_count}} folders</span> 
+                <span ng-if="folder.folders_count == 1">1 folder</span> 
+                <span ng-if="folder.folders_count && folder.photos_count">, </span> 
+                <span ng-if="folder.photos_count > 1">{{folder.photos_count}} photos</span> 
+                <span ng-if="folder.photos_count == 1">1 photo</span> 
+                <span ng-if="folder.first_created || folder.last_created">(<span ng-if="folder.first_created">{{folder.first_created | date: 'MMM dd, yyyy'}}</span><span ng-if="folder.last_created && !areSameDay(folder.last_created, folder.first_created)"> - {{folder.last_created | date: 'MMM dd, yyyy'}}</span>)</span>
+              </p>
+
+            </div><!-- folderShowing -->
+          </div><!-- folders -->
+
+          <div ng-show="isSectionActive('collections')">
+            <div ng-show="!collectionShowing">
+              <div style="float: right;">
+                <a href="" class="btn btn-default btn-sm" ng-click="showImportDialog('collection')" 
+                  title="Import new collections"><i class="fa fa-plus"></i></a>
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': collectionFiltering}" ng-click="toggleCollectionFilter()" title="Toggle filter"><i class="fa fa-search"></i></a> -->
+                <a href="" class="btn btn-default btn-sm" ng-click="toggleCollectionViewMode()" title="Toggle view mode">
+                  <span ng-show="collectionViewMode == 'grid'"><i class="fa fa-th"></i></span>
+                  <span ng-show="collectionViewMode == 'details'"><i class="fa fa-th-list"></i></span>
+                  <span ng-show="collectionViewMode == 'list'"><i class="fa fa-reorder"></i></span>
+                </a>
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': collectionActionsEnable}" ng-click="toggleCollectionActions()" title="Toggle actions"><i class="fa fa-edit"></i></a> -->
+                <!-- <a href="" class="btn btn-default btn-sm" ng-class="{'active': collectionSettingsShowing}" ng-click="toggleCollectionSettings()" title="Toggle settings"><i class="fa fa-cog"></i></a> -->
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionSortBy('name'),}" ng-click="setCollectionSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionSortBy('photos_count'),}" ng-click="setCollectionSortBy('photos_count')" title="Sort by photos count">P</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionSortBy('added_at')}" ng-click="setCollectionSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+
+              </div>
+
+              <h3 style="display: inline;margin-bottom: 0;">Collections
+              </h3>
+
+              <form id="filterCollectionForm" class="filter-form" ng-submit="filterCollections()">
+                <div style="position: relative;">
+                  <input id="collectionFilter" name="itemfilter" type="text" class="form-control" 
+                    placeholder="Find collection by name " ng-model="collectionFilter" ng-change="filterCollections()">
+                  <span class="form-control-clear glyphicon glyphicon-remove form-control-feedback" ng-class="{'hidden': collectionFilter==''}" ng-click="clearCollectionFilter()"></span>
+                </div>
+              </form>
+
+              <span ng-hide="loading" style="color: #999;font-size: 14px;">{{collectionTotal}}</span> 
+              <span ng-show="loading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+            </div><!-- !collectionShowing -->
+
+            <div ng-show="collectionShowing">
+
+              <div style="float: right;">
+                <span ng-show="collectionLoading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+                <a class="btn btn-default btn-sm" ng-class="{'active': collectionPhotoInfoShowing}" ng-click="toggleCollectionPhotoInfo()" title="Toggle photo info"><i class="fa fa-info fa-fw"></i></a>
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionPhotoSortBy('name')}" ng-click="setCollectionPhotoSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionPhotoSortBy('size')}" ng-click="setCollectionPhotoSortBy('size')" title="Sort by size">S</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionPhotoSortBy('created')}" ng-click="setCollectionPhotoSortBy('created')" title="Sort by created date">C</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isCollectionPhotoSortBy('added_at')}" ng-click="setCollectionPhotoSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+              </div>
+
+              <h3 style="margin-bottom: 0;">
+                <a href="" class="back-button" style="text-decoration: none;margin-top: 25px;" 
+                ng-click="closeCollectionDetails()">Collections</a> <i style="font-size: 18px;" class="fa fa-chevron-right fa-fw"></i> 
+                <span style="font-size: 18px;"><b>{{collection.name}}</b></span>
+              </h3>
+
+              <p style="font-size: 14px;color: #777;margin-bottom: 0;">
+                <span>{{collection.photos_count}} photos</span>  
+                <span ng-if="collection.first_created || collection.last_created">(<span ng-if="<span ng-if="collection.first_created || collection.last_created">">{{collection.first_created | date: 'MMM dd, yyyy'}}</span><span ng-if="collection.last_created && !areSameDay(collection.last_created, collection.first_created)"> - {{collection.last_created | date: 'MMM dd, yyyy'}}</span>)</span>
+              </p>
+            </div><!-- collectionShowing -->
+          </div><!-- collections -->
+
+          <div ng-show="isSectionActive('favorites')">
+            <div ng-show="!favoriteShowing">
+              <div style="float: right;">
+                <a href="" class="btn btn-default btn-sm" ng-click="toggleFavoriteViewMode()" title="Toggle view mode">
+                  <span ng-show="favoriteViewMode == 'grid'"><i class="fa fa-th"></i></span>
+                  <span ng-show="favoriteViewMode == 'details'"><i class="fa fa-th-list"></i></span>
+                  <span ng-show="favoriteViewMode == 'list'"><i class="fa fa-reorder"></i></span>
+                </a>
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoriteSortBy('name'),}" ng-click="setFavoriteSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoriteSortBy('photos_count'),}" ng-click="setFavoriteSortBy('photos_count')" title="Sort by photos count">P</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoriteSortBy('added_at')}" ng-click="setFavoriteSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+
+              </div>
+
+              <h3 style="display: inline;margin-bottom: 0;">Favorites
+              </h3>
+
+              <!-- <form id="filterFavoriteForm" class="filter-form" ng-submit="filterFavorites()">
+                <div style="position: relative;">
+                  <input id="favoriteFilter" name="itemfilter" type="text" class="form-control" 
+                    placeholder="Find favorite by name " ng-model="favoriteFilter" ng-change="filterFavorites()">
+                  <span class="form-control-clear glyphicon glyphicon-remove form-control-feedback" ng-class="{'hidden': favoriteFilter==''}" ng-click="clearFavoriteFilter()"></span>
+                </div>
+              </form> -->
+
+              <span ng-hide="loading" style="color: #999;font-size: 14px;">{{favoriteTotal}}</span> 
+              <span ng-show="loading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+            </div><!-- !favoriteShowing -->
+
+            <div ng-show="favoriteShowing">
+
+              <div style="float: right;">
+                <span ng-show="favoriteLoading"><i class="fa fa-spinner fa-fw fa-spin"></i></span> 
+
+                <a class="btn btn-default btn-sm" ng-class="{'active': favoritePhotoInfoShowing}" ng-click="toggleFavoritePhotoInfo()" title="Toggle photo info"><i class="fa fa-info fa-fw"></i></a>
+
+                <div class="btn-group">
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoritePhotoSortBy('name')}" ng-click="setFavoritePhotoSortBy('name')" title="Sort by name">N</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoritePhotoSortBy('size')}" ng-click="setFavoritePhotoSortBy('size')" title="Sort by size">S</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoritePhotoSortBy('created')}" ng-click="setFavoritePhotoSortBy('created')" title="Sort by created date">C</a>
+                  <a href="" class="btn btn-default btn-sm" ng-class="{'active': isFavoritePhotoSortBy('added_at')}" ng-click="setFavoritePhotoSortBy('added_at')" title="Sort by added date">A</a>
+                </div>
+              </div>
+
+              <h3 style="margin-bottom: 0;">
+                <a href="" class="back-button" style="text-decoration: none;margin-top: 25px;" 
+                ng-click="closeFavoriteDetails()">Favorites</a> 
+                <span style="font-size: 14px;color: #777;">{{favorite.photos_count}} photos</span>
+              </h3>
+
+            </div><!-- favoriteShowing -->
+          </div><!-- favorites -->
+
+          <div ng-show="isSectionActive('import')">
+            <h3>Import photos
+            <a class="btn btn-info" ng-click="showImportDialog()"><i class="fa fa-plus fa-fw"></i> Import</a>
+            </h3>
+          </div><!-- import -->
+
+          <div ng-show="isSectionActive('settings')">
+            <h3>Settings</h3>
+          </div><!-- settings -->
+
+        </div>
+
+        <div class="main-content">
+        
+          <div ng-show="isSectionActive('photos') || isSectionActive('moments')">
+            <div class="item-list" infinite-scroll="loadMorePhotos()" 
+              infinite-scroll-disabled='loading || ($scope.folderLoaded < $scope.folderTotal)' 
+              infinite-scroll-distance='1' 
+              ng-class="{'align-center': photoViewMode == 'grid'}">
+              <div class="item photo-item" ng-repeat="photo in photos" ng-class="{'item-block clearfix': photoViewMode !== 'grid', 'col-md-6 col-sm-6 col-xs-12': photoViewMode == 'details'}">
+                <div class="grid-item" ng-if="photoViewMode == 'grid'">
+                  <!-- <div class="item-cover-holder">
+                    <a href="" ng-click="showPhotoDetailsByIndex($index)" ng-attr-title="{{photo.name}}">
+                      <img class="item-cover" ng-src="/file?path={{photo.thumb | encodeURI}}" ng-class="{'highlight': photoIndex == $index}" 
+                      on-error-src="img/256x256.png">
+                    </a>
+                    <div class="item-cover-info" ng-show="photoInfoShowing">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0;">{{photo.name}}</h5>
+                      <p style="margin-bottom: 10px;font-size: 12px;color: #999">
+                        <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</span>
+                        <span ng-if="photo.w && photo.h && photo.size"> - </span>
+                        <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                      </p>
+                    </div>
+                  </div> -->
+                  <!-- <div class="col-md-12 item-actions" ng-if="photoActionsEnable">
+                    <a href="" ng-click="removePhotoByIndex($index)" class="btn btn-primary btn-block btn-sm" style="margin-top: 10px;">Remove</a>
+                  </div> -->
+                  <div class="row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showPhotoDetailsByIndex($index)" ng-attr-title="{{photo.name}}">
+                        <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                          ng-class="{'highlight': photoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                          ng-class="{'highlight': photoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="!photo.thumb_file && !photo.thumb" class="item-cover" ng-src="/photos/{{photo._id}}/thumb"
+                          ng-class="{'highlight': photoIndex == $index}" on-error-src="img/256x256.png">
+                        <!-- <img ng-if="!photo.thumb" class="item-cover" src="img/256x256.png" 
+                          ng-class="{'highlight': photoIndex == $index}"> -->
+                        <span ng-if="photo.favorited" class="item-cover-top-left"><i class="fa fa-heart fa-fw"></i></span>
+                        <span ng-if="photo.type=='gif'" class="item-cover-bottom-left text-uppercase">{{photo.type}}</span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" ng-show="photoInfoShowing" style="margin-bottom: 10px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0;">{{photo.name}}</h5>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</span>
+                        <span ng-if="photo.w && photo.h && photo.size"> - </span>
+                        <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                      </p>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.created && isPhotoSortBy('created')">{{photo.created | date: 'dd MMM yyyy hh:mm'}}</span>
+                        <span ng-if="photo.added_at && isPhotoSortBy('added_at')">{{photo.added_at | date: 'dd MMM yyyy hh:mm'}}</span>
+                      </p>
+                    </div>
+                  </div> 
+                </div> 
+
+                <div class="item-info" ng-if="photoViewMode == 'details'">
+                  <div style="float: left;">
+                    <a href="" ng-click="showPhotoDetailsByIndex($index)">
+                      <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                      <img ng-if="photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                      <img ng-if="!photo.thumb && !photo.thumb_file" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                      <!-- <img ng-if="!photo.thumb" class="item-cover" src="img/256x256.png" 
+                        style="max-width: 100px;min-height: 100px;"> -->
+                    </a>
+                  </div>
+                  <div style="padding-left: 120px;">
+                    <h5 class="item-title" style="font-size: 14px;font-weight: bold;"><a href="" ng-click="showPhotoDetailsByIndex($index)">{{photo.name}}</a></h5>
+                    <div class="item-meta">
+                      <p ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</p>
+                      <p ng-if="photo.size">{{photo.size | formatBytes}}</p>
+                      <p ng-if="photo.created"><b>Created at</b> {{photo.created | date: 'dd MMM yyyy'}}</p>
+                      <p><b>Added at</b> {{photo.added_at | date: 'dd MMM yyyy HH:mm'}}</p>
+                    </div>
+                  </div>
+                </div>
+                <div ng-if="photoViewMode == 'list'">
+                  <div style="float: right">{{photo.added_at | date: 'dd MMM yyyy HH:mm'}}</div>
+                  <h5 style="font-size: 14px;">
+                    <a href="" ng-click="showPhotoDetailsByIndex($index)">{{photo.name}}</a> 
+                    <p style="font-size: 12px;color: #999;">
+                      <span ng-if="photo.created">{{photo.created | date: 'yyyy, MMM dd'}} - </span>
+                      <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}} - </span>
+                      <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                    </p>
+                  </h5>
+                </div>
+              </div>
+            </div> 
+            
+            <!-- <div ng-show="loading" style="text-align: center">
+              <span class="fa fa-refresh fa-spin fa-2x fa-w"></span>
+            </div> -->
+
+          </div><!-- photos -->
+
+          <div ng-show="isSectionActive('folders')">
+
+            <div ng-show="!folderShowing">
+              <div class="item-list" ng-class="{'align-center': folderViewMode == 'grid'}" 
+                infinite-scroll="loadMoreFolders()" infinite-scroll-disabled='loading || folderShowing' infinite-scroll-distance='1'>
+                <div class="item folder-item" ng-repeat="folder in folders" ng-class="{'item-block clearfix': folderViewMode !== 'grid', 'col-md-6 col-sm-6 col-xs-12': folderViewMode == 'details'}">
+                  <div class="grid-item row" ng-if="folderViewMode == 'grid'">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showFolderDetailsByIndex($index)">
+                        <img ng-if="folder.cover_file" class="item-cover" src="img/folder-icon.png" ng-src="/file?path={{folder.cover_file | encodeURI}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="folder.cover" class="item-cover" src="img/folder-icon.png" ng-src="/covers/{{folder.cover}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="!folder.cover_file && !folder.cover" class="item-cover" src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <span class="item-folder-counts">
+                          <span ng-if="folder.folders_count" class="item-folder-subfolders-count">{{folder.folders_count}}</span>
+                          <span ng-if="folder.photos_count" class="item-folder-photos-count">{{folder.photos_count}}</span>
+                        </span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: bold;margin-top: 0;">
+                        <a href="" ng-click="showFolderDetailsByIndex($index)" ng-attr-title="{{folder.name}}">{{folder.name}}</a>
+                      </h5>
+                      <p style="font-size: 12px;color: #999;display: none;">
+                        <span ng-if="folder.folders_count > 1">{{folder.folders_count}} folders</span>
+                        <span ng-if="folder.folders_count == 1">1 folder</span>
+                        <span ng-if="folder.folders_count && folder.photos_count">, </span>
+                        <span ng-if="folder.photos_count > 1">{{folder.photos_count}} photos</span>
+                        <span ng-if="folder.photos_count == 1">1 photo</span>
+                      </p>
+                    </div>
+                    <!-- <div class="col-md-12 item-actions hidden" ng-if="folderActionsEnable">
+                      <a href="" ng-click="removeFolderByIndex($index)" class="btn btn-primary btn-block btn-sm" style="margin-top: 10px;">Remove</a>
+                    </div> -->
+                  </div> 
+                  <div class="item-info" ng-if="folderViewMode == 'details'">
+                    <div style="float: left;">
+                      <a href="" ng-click="showFolderDetailsByIndex($index)">
+                        <img ng-if="folder.cover_file" class="item-cover" ng-src="/file?path={{folder.cover_file | encodeURI}}" 
+                          on-error-src="img/folder-icon.png" style="max-width: 100px;min-height: 100px;">
+                        <img ng-if="folder.cover" class="item-cover" ng-src="/covers/{{folder.cover}}" 
+                          on-error-src="img/folder-icon.png" style="max-width: 100px;min-height: 100px;">
+                        <img ng-if="!folder.cover_file && !folder.cover" class="item-cover" src="img/folder-icon.png" style="max-width: 100px;min-height: 100px;">
+                      </a>
+                    </div>
+                    <div style="padding-left: 120px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: bold;margin-top: 0;">
+                        <a href="" ng-click="showFolderDetailsByIndex($index)" ng-attr-title="{{folder.name}}">{{folder.name}}</a>
+                      </h5>
+                      <p style="font-size: 12px;color: #999;">
+                        <span ng-if="folder.size">{{folder.size | formatBytes}}</span>
+                      </p>
+                      <p style="font-size: 12px;color: #999;">
+                        <span ng-if="folder.folders_count > 1">{{folder.folders_count}} folders</span>
+                        <span ng-if="folder.folders_count == 1">1 folder</span>
+                        <span ng-if="folder.folders_count && folder.photos_count">, </span>
+                        <span ng-if="folder.photos_count > 1">{{folder.photos_count}} photos</span>
+                        <span ng-if="folder.photos_count == 1">1 photo</span>
+                      </p>
+                      <!-- <p>{{folder.added_at | date: 'dd MMM yyyy HH:mm'}}</p> -->
+                      <p style="font-size: 12px;color: #999;">
+                        <span ng-if="folder.first_created">{{folder.first_created | date: 'MMM dd, yyyy'}}</span>
+                        <span ng-if="folder.last_created && !areSameDay(folder.last_created, folder.first_created)"> - {{folder.last_created | date: 'MMM dd, yyyy'}}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div ng-if="folderViewMode == 'list'">
+                    <div style="float: right">{{folder.added_at | date: 'dd MMM yyyy HH:mm'}}</div>
+                    <h5 class="item-title" style="font-size: 12px;">
+                      <a href="" ng-click="showFolderDetailsByIndex($index)" style="font-weight: bold;" ng-attr-title="{{folder.name}}">{{folder.name}}</a> 
+                      <span style="font-size: 12px;color: #999;">
+                        <span ng-if="folder.folders_count > 1">{{folder.folders_count}} folders</span>
+                        <span ng-if="folder.folders_count == 1">1 folder</span>
+                        <span ng-if="folder.folders_count && folder.photos_count">, </span>
+                        <span ng-if="folder.photos_count > 1">{{folder.photos_count}} photos</span>
+                        <span ng-if="folder.photos_count == 1">1 photo</span>
+                      </span>
+                    </h5>
+                    <p style="font-size: 12px;color: #999;" ng-if="folder.path">
+                      <span>{{folder.path}}</span>
+                    </p>
+                  </div>
+                </div>
+              </div> 
+
+              <!-- <div ng-show="loading" style="text-align: center;margin: 20px 0;">
+                <span class="fa fa-refresh fa-spin fa-2x fa-w"></span>
+              </div> -->
+
+            </div><!-- !folderShowing -->
+
+            <div ng-show="folderShowing">
+
+              <div ng-if="folder.tags && folder.tags.length" style="text-align: center;">
+                <a class="btn btn-primary" ng-repeat="tag in folder.tags" ng-click="filterFoldersWithTag(tag)" style="border-radius: 20px;margin-right: 4px;">{{tag}} <span class="badge"></span></a> 
+              </div>
+
+              <div class="item-list align-center" ng-if="folder.folders && folder.photos_count">
+                <div class="item folder-item grid-item" ng-repeat="subfolder in folder.folders">
+                  <div class="grid-item row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showSubFolderDetailsByIndex($index)" ng-attr-title="{{subfolder.name}}">
+                        <img ng-if="subfolder.cover_file" class="item-cover" src="img/folder-icon.png" ng-src="/file?path={{subfolder.cover_file | encodeURI}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="subfolder.cover" class="item-cover" src="img/folder-icon.png" ng-src="/covers/{{subfolder.cover}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="!subfolder.cover_file && !subfolder.cover" class="item-cover" src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <span class="item-folder-counts">
+                          <span ng-if="subfolder.folders_count" class="item-folder-subfolders-count">{{subfolder.folders_count}}</span>
+                          <span ng-if="subfolder.photos_count" class="item-folder-photos-count">{{subfolder.photos_count}}</span>
+                        </span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" style="margin-bottom: 10px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-top: 0;margin-bottom: 0;">
+                        <a href="" ng-click="showSubFolderDetailsByIndex($index)" ng-attr-title="{{subfolder.name}}">{{subfolder.name}}</a>
+                      </h5>
+                      <p style="font-size: 12px;color: #999;" ng-show="folderPhotoInfoShowing">
+                        <span ng-if="subfolder.size">{{subfolder.size | formatBytes}}</span>
+                        <!-- <span ng-if="subfolder.folders_count > 1">{{subfolder.folders_count}} folders</span>
+                        <span ng-if="subfolder.folders_count == 1">1 folder</span>
+                        <span ng-if="subfolder.folders_count && subfolder.photos_count">, </span>
+                        <span ng-if="subfolder.photos_count > 1">{{subfolder.photos_count}} photos</span>
+                        <span ng-if="subfolder.photos_count == 1">1 photo</span> -->
+                      </p>
+                    </div>
+                    <!-- <div class="col-md-12 item-actions hidden" ng-if="folderActionsEnable">
+                      <a href="" ng-click="removeFolderByIndex($index)" class="btn btn-primary btn-block btn-sm" style="margin-top: 10px;">Remove</a>
+                    </div> -->
+                  </div> 
+                </div>
+
+                <div ng-show="!folderLoading && folder.folders_count && folder.folders.length < folder.folders_count" 
+                  style="text-align: center;margin: 20px 0;">
+                  <a href="" ng-click="loadMoreSubFolders()" class="btn btn-primary" style="border-radius: 20px;">Load More Folders</a>
+                </div>
+              </div> 
+
+              <div class="item-list align-center" ng-if="folder.folders && !folder.photos_count" infinite-scroll="loadMoreSubFolders()" infinite-scroll-disabled='folderLoading' infinite-scroll-distance='1'>
+                <div class="item folder-item grid-item" ng-repeat="subfolder in folder.folders">
+                  <div class="grid-item row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showSubFolderDetailsByIndex($index)" ng-attr-title="{{subfolder.name}}">
+                        <img ng-if="subfolder.cover_file" class="item-cover" src="img/folder-icon.png" ng-src="/file?path={{subfolder.cover_file | encodeURI}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="subfolder.cover" class="item-cover" src="img/folder-icon.png" ng-src="/covers/{{subfolder.cover}}" 
+                        on-error-src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="!subfolder.cover_file && !subfolder.cover" class="item-cover" src="img/folder-icon.png" style="padding: 5px;border-radius: 4px;">
+                        <span class="item-folder-counts">
+                          <span ng-if="subfolder.folders_count" class="item-folder-subfolders-count">{{subfolder.folders_count}}</span>
+                          <span ng-if="subfolder.photos_count" class="item-folder-photos-count">{{subfolder.photos_count}}</span>
+                        </span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" style="margin-bottom: 10px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-top: 0;margin-bottom: 0;">
+                        <a href="" ng-click="showSubFolderDetailsByIndex($index)" ng-attr-title="{{subfolder.name}}">{{subfolder.name}}</a>
+                      </h5>
+                      <p style="font-size: 12px;color: #999;" ng-show="folderPhotoInfoShowing">
+                        <span ng-if="subfolder.size">{{subfolder.size | formatBytes}}</span>
+                        <!-- <span ng-if="subfolder.folders_count > 1">{{subfolder.folders_count}} folders</span>
+                        <span ng-if="subfolder.folders_count == 1">1 folder</span>
+                        <span ng-if="subfolder.folders_count && subfolder.photos_count">, </span>
+                        <span ng-if="subfolder.photos_count > 1">{{subfolder.photos_count}} photos</span>
+                        <span ng-if="subfolder.photos_count == 1">1 photo</span> -->
+                      </p>
+                    </div>
+                    <!-- <div class="col-md-12 item-actions hidden" ng-if="folderActionsEnable">
+                      <a href="" ng-click="removeFolderByIndex($index)" class="btn btn-primary btn-block btn-sm" style="margin-top: 10px;">Remove</a>
+                    </div> -->
+                  </div> 
+                </div>
+              </div> 
+
+              <div class="item-photos align-center" ng-if="folder.photos && folder.photos_count" infinite-scroll="loadMoreFolderPhotos()" 
+              infinite-scroll-disabled='folderLoading' infinite-scroll-distance='1'>
+                <div class="item photo-item grid-item" ng-repeat="photo in folder.photos">
+                  <div class="row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showFolderPhotoDetailsByIndex($index)" ng-attr-title="{{photo.name}}">
+                        <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                          ng-class="{'highlight': folderPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                          ng-class="{'highlight': folderPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="!photo.thumb_file && !photo.thumb" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                          ng-class="{'highlight': folderPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <!-- <img ng-if="!photo.thumb" class="item-cover" src="img/256x256.png" ng-class="{'highlight': folderPhotoIndex == $index}"> -->
+                        <span ng-if="photo.favorited" class="item-cover-top-left"><i class="fa fa-heart fa-fw"></i></span>
+                        <span ng-if="photo.type=='gif'" class="item-cover-bottom-left text-uppercase">{{photo.type}}</span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" ng-show="folderPhotoInfoShowing" style="margin-bottom: 10px;"">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0;">{{photo.name}}</h5>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</span>
+                        <span ng-if="photo.w && photo.h && photo.size"> - </span>
+                        <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                      </p>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.created && isFolderPhotoSortBy('created')">{{photo.created | date: 'dd MMM yyyy hh:mm'}}</span>
+                        <span ng-if="photo.added_at && isFolderPhotoSortBy('added_at')">{{photo.added_at | date: 'dd MMM yyyy hh:mm'}}</span>
+                      </p>
+                    </div>
+                  </div> 
+                </div><!-- item-photo -->
+
+                <div ng-hide="folderLoading" ng-if="folder.photos.length < folder.photos_count" 
+                  style="text-align: center">
+                  <a href="" class="btn btn-primary" ng-click="loadMoreFolderPhotos()">More</a>
+                </div>
+
+              </div><!-- item-photos -->
+
+              <!-- <div ng-show="folderLoading" style="text-align:center">
+                <span><i class="fa fa-refresh fa-2x fa-fw fa-spin"></i></span>
+              </div> -->
+
+            </div> <!-- folderShowing -->
+
+          </div><!-- folders -->
+
+          <div ng-show="isSectionActive('collections')">
+            <div ng-show="!collectionShowing">
+              <div class="item-list" infinite-scroll="loadMoreCollections()" 
+                infinite-scroll-disabled='loading' infinite-scroll-distance='1' ng-class="{'align-center': collectionViewMode == 'grid'}">
+                <div class="item collection-item" ng-repeat="collection in collections" ng-class="{'item-block clearfix': collectionViewMode !== 'grid', 'col-md-6 col-sm-6 col-xs-12': collectionViewMode == 'details'}">
+                  <div class="grid-item" ng-if="collectionViewMode == 'grid'">
+                    <div class="" ng-if="collection.cover">
+                      <a href="" ng-click="showCollectionDetailsByIndex($index)">
+                        <img ng-if="collection.cover_file" class="item-cover" src="img/256x256.png" ng-src="/file?path={{collection.cover_file | encodeURI}}" 
+                          on-error-src="img/256x256.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="collection.cover" class="item-cover" src="img/256x256.png" ng-src="/covers/{{collection.cover}}" 
+                          on-error-src="img/256x256.png" style="padding: 5px;border-radius: 4px;">
+                        <img ng-if="!collection.cover_file && !collection.cover" class="item-cover" src="img/256x256.png" style="padding: 5px;border-radius: 4px;">
+
+                        <span ng-if="photo.favorited" class="item-cover-top-left"><i class="fa fa-heart fa-fw"></i></span>
+                        <span ng-if="photo.type=='gif'" class="item-cover-bottom-left text-uppercase">{{photo.type}}</span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0"><a href="" ng-click="showCollectionDetailsByIndex($index)">{{collection.name}}</a></h5>
+                      <p style="font-size: 12px;color: #999;" ng-if="collection.photos_count > 1">{{collection.photos_count}} photos</p>
+                      <p style="font-size: 12px;color: #999;" ng-if="collection.photos_count == 1">1 photo</p>
+                    </div>
+                  </div> 
+                  <div class="item-info" ng-if="collectionViewMode == 'details'">
+                    <div style="float: left;" ng-if="collection.cover">
+                      <a href="" ng-click="showCollectionDetailsByIndex($index)">
+                        <img ng-if="collection.cover_file" class="item-cover" ng-src="/file?path={{collection.cover_file | encodeURI}}" 
+                          on-error-src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                        <img ng-if="collection.cover" class="item-cover" ng-src="/covers/{{collection.cover}}" 
+                          on-error-src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                        <img ng-if="!collection.cover_file && !collection.cover" class="item-cover" src="img/256x256.png" style="max-width: 100px;min-height: 100px;">
+                      </a>
+                    </div>
+                    <div style="padding-left: 120px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;"><a href="" 
+                        ng-click="showCollectionDetailsByIndex($index)">{{collection.name}}</a></h5>
+                      <div style="font-size: 12px;">
+                        <p ng-if="collection.photos_count > 1">{{collection.photos_count}} photos</p>
+                        <p ng-if="collection.photos_count == 1">1 photo</p>
+                        <!-- <p>{{collection.added_at | date: 'dd MMM yyyy HH:mm'}}</p> -->
+                        <p>
+                          <span ng-if="collection.first_created">{{collection.first_created | date: 'MMM dd, yyyy'}}</span>
+                          <span ng-if="collection.last_created && !areSameDay(collection.last_created, collection.first_created)"> - {{collection.last_created | date: 'MMM dd, yyyy'}}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div ng-if="collectionViewMode == 'list'">
+                    <div style="float: right">{{collection.added_at | date: 'dd MMM yyyy HH:mm'}}</div>
+                    <h5 class="item-title" style="font-size: 14px;">
+                      <a href="" ng-click="showCollectionDetailsByIndex($index)">{{collection.name}}</a> 
+                      <p style="font-size: 12px;color: #999;">
+                        <span ng-if="collection.photos_count > 1">{{collection.photos_count}} photos</span>
+                        <span ng-if="collection.photos_count == 1">1 photo</span>
+                      </p>
+                    </h5>
+                  </div>
+                </div>
+              </div> 
+
+              <!-- <div ng-show="loading" style="text-align: center;margin: 20px 0;">
+                <span class="fa fa-refresh fa-spin fa-2x fa-w"></span>
+              </div> -->
+
+            </div><!-- !collectionShowing -->
+
+            <div ng-show="collectionShowing">
+              <div class="photo-items align-center" ng-if="collection.photos" infinite-scroll="loadMoreCollectionPhotos()" 
+              infinite-scroll-disabled='collectionLoading' infinite-scroll-distance='1'>
+                <div class="item photo-item grid-item" ng-repeat="photo in collection.photos">
+                  <div class="row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showCollectionPhotoDetailsByIndex($index)" ng-attr-title="{{photo.name}}">
+                        <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                          ng-class="{'highlight': collectionPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                          ng-class="{'highlight': collectionPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="!photo.thumb_file && !photo.thumb" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                          ng-class="{'highlight': collectionPhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <!-- <img ng-if="!photo.thumb" class="item-cover" src="img/256x256.png" 
+                          ng-class="{'highlight': collectionPhotoIndex == $index}"> -->
+                        <span ng-if="photo.favorited" class="item-cover-top-left"><i class="fa fa-heart fa-fw"></i></span>
+                        <span ng-if="photo.type=='gif'" class="item-cover-bottom-left text-uppercase">{{photo.type}}</span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" ng-show="collectionPhotoInfoShowing" style="margin-bottom: 10px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0;">{{photo.name}}</h5>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</span>
+                        <span ng-if="photo.w && photo.h && photo.size"> - </span>
+                        <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                      </p>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.created && isCollectionPhotoSortBy('created')">{{photo.created | date: 'dd MMM yyyy hh:mm'}}</span>
+                        <span ng-if="photo.added_at && isCollectionPhotoSortBy('added_at')">{{photo.added_at | date: 'dd MMM yyyy hh:mm'}}</span>
+                      </p>
+                    </div>
+                  </div> 
+                </div><!-- item-photo -->
+
+                <div ng-hide="collectionLoading" ng-if="collection.photos.length < collection.photos_count" 
+                  style="text-align: center">
+                  <a href="" class="btn btn-primary" ng-click="loadMoreCollectionPhotos()">More</a>
+                </div>
+
+              </div><!-- item-photos -->
+
+              <!-- <div ng-show="collectionLoading" style="text-align:center">
+                <span><i class="fa fa-refresh fa-2x fa-fw fa-spin"></i></span>
+              </div> -->
+
+            </div> <!-- collectionShowing -->
+
+          </div><!-- collections -->
+
+          <div ng-show="isSectionActive('favorites')">
+            <div ng-show="favoriteShowing">
+              <div class="photo-items align-center" ng-if="favorite.photos" infinite-scroll="loadMoreFavoritePhotos()" 
+              infinite-scroll-disabled='favoriteLoading' infinite-scroll-distance='1'>
+                <div class="item photo-item grid-item" ng-repeat="photo in favorite.photos">
+                  <div class="row">
+                    <div class="col-md-12">
+                      <a href="" ng-click="showFavoritePhotoDetailsByIndex($index)" ng-attr-title="{{photo.name}}">
+                        <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                          ng-class="{'highlight': favoritePhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                          ng-class="{'highlight': favoritePhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <img ng-if="!photo.thumb_file && !photo.thumb" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                          ng-class="{'highlight': favoritePhotoIndex == $index}" on-error-src="img/256x256.png">
+                        <!-- <img ng-if="!photo.thumb" class="item-cover" src="img/256x256.png" 
+                          ng-class="{'highlight': favoritePhotoIndex == $index}"> -->
+                        <!-- <span ng-if="photo.favorited" class="item-cover-top-left"><i class="fa fa-heart fa-fw"></i></span> -->
+                        <span ng-if="photo.type=='gif'" class="item-cover-bottom-left text-uppercase">{{photo.type}}</span>
+                      </a>
+                    </div>
+                    <div class="col-md-12 item-info" ng-show="favoritePhotoInfoShowing" style="margin-bottom: 10px;">
+                      <h5 class="item-title" style="font-size: 12px;font-weight: 600;margin-bottom: 0;">{{photo.name}}</h5>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.w && photo.h">{{photo.w}} x {{photo.h}}</span>
+                        <span ng-if="photo.w && photo.h && photo.size"> - </span>
+                        <span ng-if="photo.size">{{photo.size | formatBytes}}</span>
+                      </p>
+                      <p style="font-size: 12px;color: #999">
+                        <span ng-if="photo.created && isFavoritePhotoSortBy('created')">{{photo.created | date: 'dd MMM yyyy hh:mm'}}</span>
+                        <span ng-if="photo.added_at && isFavoritePhotoSortBy('added_at')">{{photo.added_at | date: 'dd MMM yyyy hh:mm'}}</span>
+                      </p>
+                    </div>
+                  </div> 
+                </div><!-- item-photo -->
+
+                <div ng-hide="favoriteLoading" ng-if="favorite.photos.length < favorite.photos_count" 
+                  style="text-align: center">
+                  <a href="" class="btn btn-primary" ng-click="loadMoreFavoritePhotos()">More</a>
+                </div>
+
+              </div><!-- item-photos -->
+
+              <!-- <div ng-show="favoriteLoading" style="text-align:center">
+                <span><i class="fa fa-refresh fa-2x fa-fw fa-spin"></i></span>
+              </div> -->
+
+            </div> <!-- favoriteShowing -->
+          </div><!-- favorites -->
+
+          <div ng-show="isSectionActive('import')">
+
+            <h5 style="text-transform: uppercase;">Active Import</h5>              
+            
+            <p ng-if="!currentImport || !currentImport.importing" style="font-size: 16px;color: #777;">No active import</p>
+            
+            <!-- currentImport -->
+            <div class="item-list">
+              <div class="item item-block import-item col-md-12" ng-if="currentImport.importing">
+                <div class="item-info clearfix" style="position: relative;">
+
+                  <h4 class="item-title" style="font-weight: 600;">{{currentImport.data_source}} </h4>
+
+                  <div class="import-item-info" style="margin-bottom: 10px;">
+                    <p ng-if="currentImport.input_url"><i class="fa fa-link fa-fw"></i> {{currentImport.input_url}}</p>
+                    <p ng-if="currentImport.input_dir"><i class="fa fa-folder fa-fw"></i> {{currentImport.input_dir}}</p>
+
+                    <p ng-if="currentImport.photo_folder_name"><i class="fa fa-book fa-fw"></i> {{currentImport.photo_folder_name}}</p>
+                    <p ng-if="currentImport.photo_collection_name"><i class="fa fa-clone fa-fw"></i> {{currentImport.photo_collection_name}}</p>
+
+                  </div>
+                  
+                  <p><a href="" class="btn btn-warning" ng-show="currentImport.importing" ng-click="stopImport()">Stop Import</a></p>
+
+                  <div ng-show="currentImport.importing" style="margin: 10px 0;">
+                    <p><span>Please wait...</span></p>
+                    <p>
+                      <span ng-show="currentImport.progress.total && currentImport.progress.total > 0">Progress: {{currentImport.progress.current}}/{{currentImport.progress.total}}</span>
+                      <span ng-show="currentImport.progress.imported && currentImport.progress.imported > 0">, Imported: {{currentImport.progress.imported}}</span>
+                    </p>
+                    <div class="progress" style="margin-bottom: 5px;">
+                      <div class="progress-bar progress-bar-success" role="progressbar" 
+                        aria-valuenow="{{currentImport.progress.percent}}" aria-valuemin="0" aria-valuemax="100" 
+                        ng-style="{'width': (currentImport.progress.percent + '%')}">
+                          <span ng-show="currentImport.progress.current && currentImport.progress.total">{{currentImport.progress.current}}/{{currentImport.progress.total}}</span>
+                      </div>
+                    </div>
+                    <div class="progress" style="margin-bottom: 5px;">
+                      <div class="progress-bar progress-bar-warning" role="progressbar" 
+                        aria-valuenow="{{currentImport.progress.imported_percent}}" aria-valuemin="0" aria-valuemax="100" 
+                        ng-style="{'width': (currentImport.progress.imported_percent + '%')}">
+                          <span>{{currentImport.progress.imported}}</span>
+                      </div>
+                    </div>
+                    <p>
+                      <span ng-show="currentImport.progress.current_file">{{currentImport.progress.current_file}}</span>
+                    </p>
+                  </div>
+
+                  <div ng-show="currentImport.result" style="margin: 10px 0;">
+                    <p>
+                      <b>Result:</b> <span ng-if="currentImport.result.dirs"><i class="fa fa-folder fa-fw"></i> {{currentImport.result.dirs}}</span> <span ng-if="currentImport.result.files"><i class="fa fa-file-image-o fa-fw"></i>{{currentImport.result.files}}</span> <span ng-if="currentImport.result.imported" style="color: green"><i class="fa fa-thumbs-up fa-fw"></i>{{currentImport.result.imported}}</span> <span ng-if="currentImport.result.errors"><i class="fa fa-exclaimation-circle fa-fw" style="color: red;"></i>{{currentImport.result.errors}}</span>
+                    </p>
+                  </div>
+
+                  <div ng-if="isSectionActive('import') && currentImport.newPhotos && currentImport.newPhotos.length > 0" style="margin-top: 10px;">
+                    <div class="item photo-item" ng-repeat="photo in currentImport.newPhotos">
+                      <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                      <img ng-if="!photo.thumb_file && photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                      <img ng-if="!photo.thumb && !photo.thumb_file" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                    </div><!-- photo-item -->
+                  </div><!-- photo-items -->
+                
+                </div><!-- item-info -->
+              </div><!-- item -->
+            </div><!-- item-list -->
+            <!-- currentImport -->
+            
+            <h5 ng-show="importQueue.length > 1" style="text-transform: uppercase;">Import Queue <small>{{importQueue.length-1}}</small></h5>
+
+            <!-- importQueue -->
+            <div class="item-list">
+              <div class="item item-block import-item col-md-12" ng-repeat="import in importQueue" ng-show="!import.importing">
+                <div class="item-info clearfix" style="position: relative;">
+                  <div style="float: right;">
+                    <a href="" class="photo-view-action-button" style="margin-top: 10px;" 
+                      ng-click="$event.stopPropagation();removeImportItem($index)"><i class="fa fa-times fa-fw"></i></a>
+                  </div>
+
+                  <h4 class="item-title" style="font-weight: 600;">{{import.data_source}} </h4>
+
+                  <div class="import-item-info" style="margin-bottom: 10px;">
+                    <p ng-if="import.input_url"><i class="fa fa-link fa-fw"></i> {{import.input_url}}</p>
+                    <p ng-if="import.input_dir"><i class="fa fa-folder fa-fw"></i> {{import.input_dir}}</p>
+
+                    <p ng-if="import.photo_folder_name"><i class="fa fa-book fa-fw"></i> {{import.photo_folder_name}}</p>
+                    <p ng-if="import.photo_collection_name"><i class="fa fa-clone fa-fw"></i> {{import.photo_collection_name}}</p>
+                  </div>
+                  
+                  <div ng-show="import.result" style="margin: 10px 0;">
+                    <p>
+                      <b>Result:</b> <span ng-if="import.result.dirs"><i class="fa fa-folder fa-fw"></i> {{import.result.dirs}}</span> <span ng-if="import.result.files"><i class="fa fa-file-image-o fa-fw"></i>{{import.result.files}}</span> <span ng-if="import.result.imported" style="color: green"><i class="fa fa-thumbs-up fa-fw"></i>{{import.result.imported}}</span> <span ng-if="import.result.errors" style="color: red;"><i class="fa fa-exclamation fa-fw" ></i>{{import.result.errors}}</span>
+                    </p>
+                  </div>
+
+                  <div ng-if="import.newPhotos && import.newPhotos.length > 0" style="margin-top: 10px;">
+                    <div class="item photo-item" ng-repeat="photo in import.newPhotos">
+                      <img ng-if="photo.thumb_file" class="item-cover" ng-src="/file?path={{photo.thumb_file | encodeURI}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                      <img ng-if="!photo.thumb_file && photo.thumb" class="item-cover" ng-src="/thumbs/{{photo.thumb}}" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                      <img ng-if="!photo.thumb && !photo.thumb_file" class="item-cover" ng-src="/photos/{{photo._id}}/thumb" 
+                        on-error-src="img/256x256.png" style="max-width: 100px;">
+                    </div><!-- photo-item -->
+                  </div><!-- photo-items -->
+                </div><!-- item-info -->
+              </div><!-- item -->
+            </div><!-- item-list -->
+            <!-- importQueue -->
+
+          </div><!-- import -->
+
+          <!-- Settings -->
+          <div ng-show="isSectionActive('settings')">
+            <form id="importForm" class="form-horizontal" style="margin: 20px 0;">
+
+              <div class="form-group">
+                <label class="control-label col-sm-2">Photos directory:</label>
+                <div class="col-sm-10">
+                  <div class="input-group" style="max-width: 500px;">
+                    <input id="settingsPhotosDirectory" name="settingsPhotosDirectory" type="text" class="form-control" 
+                      placeholder="Photos directory" ng-model="settingsPhotosDirectory">
+
+                    <span class="input-group-btn">
+                      <button type="button" class="btn btn-primary" style="border-color: #7a8288;"
+                        ng-click="selectPhotosDirectory()"><i class="fa fa-folder-o"></i></button>
+                    </span>
+                  </div>
+                  <small id="settingsPhotosDirectoryHelpText" class="form-text text-muted">
+                    The directory, in which, your photos are stored.
+                  </small>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="control-label col-sm-2">Default import directory:</label>
+                <div class="col-sm-10">
+                  <div class="input-group" style="max-width: 500px;">
+                    <input id="settingsImportDirectory" name="settingsImportDirectory" type="text" class="form-control" 
+                      placeholder="Default import directory" ng-model="settingsImportDirectory">
+
+                    <span class="input-group-btn">
+                      <button type="button" class="btn btn-primary" style="border-color: #7a8288;"
+                        ng-click="selectDefaultImportDirectory()"><i class="fa fa-folder-o"></i></button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-group"> 
+                <div class="col-sm-offset-2 col-sm-10">
+                  <a href="" class="btn btn-primary" ng-click="saveSettings()">Save</a>
+                </div>
+              </div>
+            </form>
+          </div>
+          <!-- Settings -->
+
+        </div><!-- main-content -->
+
+      </div><!-- main-container -->
+
+    <!-- </div> -->
+
+    <!-- <div class="mml-dialog" ng-show="loading" style="background-color: transparent;height: auto;">
+      <div class="mml-dialog-content" style="width: 200px;">
+        <div style="text-align: center;">
+          <span class="fa fa-refresh fa-2x fa-fw fa-spin"></span>
+        </div>
+      </div>
+    </div> -->
+
+    <!-- individual photo -->
+    <div class="mml-dialog noselect" ng-show="photoShowing" ng-click="closePhotoDetails()" 
+      style="background-color: rgba(23, 25, 28, 0.90);">
+      <div class="mml-dialog-content clearfix" 
+        style="width: 100%;height: 100%;background-color: rgba(23, 25, 28, 0.90);padding: 0;">
+
+        <div ng-show="photoViewOnScreenInfo" style="position: fixed;top: 10px;left: 10px;z-index: 5001;" ng-click="$event.stopPropagation();">
+          <div style="margin-bottom: 10px;">
+            <a href="" class="photo-view-action-button" style="margin-top: 10px;text-decoration: none;" 
+              ng-click="$event.stopPropagation();closePhotoDetails()" ng-attr-title="{{photoBackLabel ? photoBackLabel : ''}}"><i class="fa fa-chevron-left fa-fw" style="position: relative;top: 3px;"></i> <span ng-if="photoBackLabel && photoBackLabel != ''" style="font-weight: bold;font-size: 16px;">{{photoBackLabel | limitTo:30}}{{photoBackLabel.length>30?'...':''}}</span></a> 
+          </div>
+        </div>
+
+        <div ng-show="photoViewOnScreenInfo" style="position: fixed;top: 0;width: 100%;text-align: center;z-index: 5000;" ng-click="$event.stopPropagation();">
+          <p style="font-size: 14px;background: rgba(0, 0, 0, 0.5);margin: 0 auto;text-overflow: ellipsis;padding: 15px 10px;">{{photo.name}}</p>
+        </div>
+
+        <div ng-show="photoViewOnScreenInfo" style="position: fixed;top: 10px;right: 10px;z-index: 5001;" ng-click="$event.stopPropagation();">
+          <div style="margin-bottom: 10px;float: right;">
+            <a href="" ng-show="!photo.favorited" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();toggleCurrentPhotoFavorite()" title="Favorite this photo"><i class="fa fa-heart-o fa-fw"></i></a> 
+            <a href="" ng-show="photo.favorited" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();toggleCurrentPhotoFavorite()" ><i class="fa fa-heart fa-fw"></i></a> 
+
+            <a href="" class="photo-view-action-button hidden" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();openFileExternal(photo.path)" ><i class="fa fa-share-square-o fa-2x fa-fw"></i></a> 
+            
+            <a href="" ng-show="!photoViewFull" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();toggleFullPhoto()" ><i class="fa fa-expand fa-fw"></i></a> 
+            <a href="" ng-show="photoViewFull" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();toggleFullPhoto()" ><i class="fa fa-compress fa-fw"></i></a> 
+            
+            <a href="" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();photoRemoving = !photoRemoving;" ><i class="fa fa-trash fa-fw"></i></a> 
+            <!-- <a href="" class="photo-view-action-button" style="margin-top: 10px;" 
+              ng-click="$event.stopPropagation();closePhotoDetails()"><i class="fa fa-times fa-fw"></i></a> -->
+          </div>
+        </div>
+
+        <!-- <div class="item-info" style="display: none;">
+          <h4 style="font-size: 24px;">{{photo.name}}</h4>
+          <p><strong>Width:</strong> {{photo.w}}</p>
+          <p><strong>Height:</strong> {{photo.h}}</p>
+          <p><strong>Depth:</strong> {{photo.d}}</p>
+          <p ng-if="photo.created"><strong>Created:</strong> {{photo.created | date: 'dd MMM yyyy HH:mm'}}</p>
+          <br/>
+          <p><strong>Imported:</strong> {{photo.added_at | date: 'dd MMM yyyy HH:mm'}}</p>
+          <p><strong>File name:</strong> {{photo.name}}</p>
+          <p><strong>Location:</strong> {{photo.path}}</p>
+          <p><strong>File size:</strong> {{photo.size | formatBytes}}</p>
+          <p><strong>MD5:</strong> {{photo.md5}}</p>
+          <br/>
+          <a href="" class="btn btn-primary" ng-click="openFileExternal(photo.path)">Open File</a> 
+          <a href="" class="btn btn-primary" ng-click="openLocationExternal(photo.path)">Open Location</a>
+        </div> -->
+
+        <div ng-show="photoViewOnScreenInfo" style="position: fixed;bottom: 15px;right: 25px;z-index: 5001;" ng-if="photo._folder || photo._collections">
+          <a href="" ng-if="photo._folder" ng-click="$event.stopPropagation();showFolderDetails(photo._folder)" 
+            style="text-decoration: none;" ng-attr-title="Folder: {{photo._folder.name}}">
+            <img ng-if="photo._folder.cover_file" ng-src="/file?path={{photo._folder.cover_file | encodeURI}}" 
+              on-error-src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+            <img ng-if="photo._folder.cover" ng-src="/covers/{{photo._folder.cover}}" 
+              on-error-src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+            <img ng-if="!photo._folder.cover_file && !photo._folder.cover" src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+          </a>
+          <a href="" ng-if="photo._collections" ng-repeat="coll in photo._collections" 
+            ng-click="$event.stopPropagation();showCollectionDetails(coll)" 
+            style="text-decoration: none;" ng-attr-title="Collection: {{coll.name}}">
+            <img ng-if="coll.cover_file" ng-src="/file?path={{coll.cover_file | encodeURI}}" 
+              on-error-src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+            <img ng-if="coll.cover" ng-src="/covers/{{coll.cover | encodeURI}}" 
+              on-error-src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+            <img ng-if="!coll.cover_file && !coll.cover" src="img/256x256.png" style="width: 80px;border: 3px solid #fff;">
+          </a>
+        </div>
+
+        <!-- <div class="loading" ng-show="photoLoading">Loading&#8230;</div> -->
+
+        <div class="photo-view" ng-show="photoViewShowing" ng-class="{'slidefromtop': photoViewAnimation == 'fromtop', 'slidefromleft': photoViewAnimation == 'fromleft', 'slidefromright': photoViewAnimation == 'fromright', 'slidefrombottom': photoViewAnimation == 'frombottom', 'slidetoleft': photoViewAnimation == 'toleft', 'slidetoright': photoViewAnimation == 'toright'}">
+
+          <span ng-show="!photo.unavailable" style="display: inline-block;height: 100%;vertical-align: middle;"></span>
+          <img ng-if="photo.path && !photo.unavailable" ng-click="$event.stopPropagation();showNextPhoto()" ng-src="/file?path={{photo.path | encodeURI}}" 
+            on-error-src="img/256x256.png" ng-class="{'photo-view-fit': !photoViewFull, 'photo-view-full': photoViewFull}" imageonload>
+          <img ng-if="!photo.path" ng-click="$event.stopPropagation();showNextPhoto()" src="img/256x256.png" ng-class="{'photo-view-fit': !photoViewFull, 'photo-view-full': photoViewFull}">
+          <!-- <img ng-if="photo.src" ng-click="$event.stopPropagation();showNextPhoto()" ng-src="{{photo.src}}" 
+            on-error-src="img/256x256.png" style="max-width: 90%;max-height: 100%" imageonload> -->
+
+          <div ng-show="photo.path && photo.unavailable" style="display: table;width: 100%;height: 100%">
+            <div style="display: table-cell;vertical-align: middle;">
+              <span class="label label-danger" style="font-size: 14px;"> Photo Unavailable</span><br>
+              <p style="margin-top: 10px;">{{photo.path}}</p>
+            </div>
+          </div>
+        </div>
+
+        <div ng-show="!photoViewOnScreenInfo" style="position: fixed;bottom: 15px;left: 10px;z-index: 5000;" ng-click="$event.stopPropagation();">
+          <div style="background-color: rgba(0, 0, 0, 0.5);padding: 15px;margin-left: auto;margin-right: auto;">
+            <span style="font-size: 16px;">{{photoCurrentIndex()+1}} of {{photoTotalIndex()}}</span>
+          </div>
+        </div>
+
+        <div ng-show="photoViewOnScreenInfo" style="position: fixed;bottom: 15px;width: 100%;text-align: center;z-index: 5000;" ng-click="$event.stopPropagation();">
+          <p>
+            <span ng-if="photo.type == 'gif'" class="badge text-uppercase" style="background-color: #101112;">gif</span> 
+            <span class="badge" style="background-color: #101112;">{{photo.w}} x {{photo.h}}</span> 
+            <span class="badge" style="background-color: #101112;">{{photo.size | formatBytes}}</span> 
+            <span ng-if="photo.created" class="badge" style="background-color: #101112;">{{photo.created | date: 'dd MMM yyyy HH:mm'}}</span> 
+            <span ng-if="photo.favorited" class="badge text-uppercase" style="background-color: #101112;"><i class="fa fa-heart fa-fw"></i></span> 
+          </p>
+
+          <div style="background-color: rgba(0, 0, 0, 0.5);padding: 15px;margin-left: auto;margin-right: auto;width: 300px;">
+            <a class="item-prev" href="" ng-click="$event.stopPropagation();showPrevPhoto()" 
+              ng-class="{'active': havePrevPhoto()}"><i class="fa fa-arrow-left fa-2x fa-fw"></i></a>
+
+            <span style="font-size: 16px;">{{photoCurrentIndex()+1}} of {{photoTotalIndex()}}</span>
+
+            <a class="item-next" href="" ng-click="$event.stopPropagation();showNextPhoto()" 
+              ng-class="{'active': haveNextPhoto()}"><i class="fa fa-arrow-right fa-2x fa-fw"></i></a>
+          </div>
+        </div>
+      </div><!-- mml-dialog-content -->
+
+    </div><!-- mml-dialog -->
+
+    <!-- import -->
+    <div class="mml-dialog scrollbar-3" ng-show="importShowing" ng-click="importShowing = false;">
+      <div class="mml-dialog-content clearfix" ng-click="$event.stopPropagation();" style="max-width: 700px;">
+          
+        <form id="importForm" class="form-horizontal" style="margin: 20px 0;">
+
+          <div class="form-group">
+            <label class="control-label col-sm-2">Select data source:</label>
+            <div class="col-sm-10">
+              <select class="form-control" id="importDataSourceSelect" style="width: 300px;" 
+                ng-model="importDataSource" ng-change="importDataSourceChange()">
+                <option value="localdisk">Local Disk</option>
+                <option value="tumblr">Tumblr</option>
+                <option value="pinterest">Pinterest</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" ng-show="importDataSource != 'localdisk'">
+            <label class="control-label col-sm-2">Enter URL:</label>
+            <div class="col-sm-10">
+              <input id="importSelectedURL" name="importSelectedURL" type="text" class="form-control" 
+                placeholder="Enter URL here" ng-model="importSelectedURL">
+              <small id="importSelectedURLHelpText" class="form-text text-muted">
+                This URL should match with data source. Otherwise, contents will be not downloaded.
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="control-label col-sm-2">Select local directory:</label>
+            <div class="col-sm-10">
+              <div class="input-group" style="max-width: 500px;">
+                <input id="importSelectedDir" name="importSelectedDir" type="text" class="form-control" 
+                  placeholder="Browse to directory that contains photos" ng-model="importSelectedDir">
+
+                <span class="input-group-btn">
+                  <button type="button" class="btn btn-primary" style="border-color: #7a8288;"
+                    ng-click="selectDirectory()"><i class="fa fa-folder-o"></i></button>
+                </span>
+              </div>
+              <small id="importSelectedDirHelpText" class="form-text text-muted">
+                This directory will store photos if data source is from internet. 
+                In this case, the directory must be writable.
+              </small>
+              <br>
+              <div ng-show="importDataSource == 'localdisk'"><input type="checkbox" 
+                ng-model="importRecursive"> Scan in sub-folders (recursive)
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group"> 
+            <label class="control-label col-sm-2">Import to: </label>
+            <div class="col-sm-10">
+              <input type="radio" value="no-collection" ng-model="importMode"> No collection creation<br>
+              <input type="radio" value="folder-as-collection" ng-model="importMode"> Create collections from folders (or pages)<br>
+              <input type="radio" value="to-specific-collection" ng-model="importMode"> Add to one collection<br>
+              <input id="importSelectedCollection" ng-show="importMode == 'to-specific-collection'" 
+                name="importSelectedCollection" type="text" class="form-control" 
+                placeholder="Enter collection name..." ng-model="importSelectedCollection" 
+                style="margin-top: 10px;width: 300px;font-size: 14px;height: 30px;">
+              <br>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="control-label col-sm-2">Min Width: </label>
+            <div class="col-sm-10">
+              <input id="importMinWidth" name="importMinWidth" type="text" class="form-control" ng-model="importMinWidth" 
+                style="width: 60px;font-size: 14px;height: 30px;" value="200">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="control-label col-sm-2">Min Height: </label>
+            <div class="col-sm-10">
+              <input id="importMinHeight" name="importMinHeight" type="text" class="form-control" ng-model="importMinHeight" 
+                style="width: 60px;font-size: 14px;height: 30px;" value="200">
+            </div>
+          </div>
+
+          <div class="form-group" ng-if="importDataSource == 'pinterest'">
+            <label class="control-label col-sm-2">Max Images (Pinterest): </label>
+            <div class="col-sm-10">
+              <input id="importPinterestMaxImages" name="importPinterestMaxImages" 
+                type="text" class="form-control" ng-model="importPinterestMaxImages" 
+                style="width: 60px;font-size: 14px;height: 30px;" value="200">
+            </div>
+          </div>
+
+          <div class="form-group" ng-show="importSelectedDir != ''"> 
+            <div class="col-sm-offset-2 col-sm-10">
+              <a href="" class="btn btn-primary" ng-click="startImport()">Start Import</a>
+            </div>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+    <div class="mml-dialog scrollbar-3" ng-show="folderBrowserShowing" ng-click="folderBrowserShowing = false;">
+      <div class="mml-dialog-content clearfix" ng-click="$event.stopPropagation();" style="max-width: 800px;">
+        <div style="margin-bottom: 10px;float: right;">
+          <a href="" style="margin-top: 10px;" 
+            ng-click="folderBrowserShowing = false;"><i class="fa fa-times fa-2x fa-fw"></i></a>
+        </div>
+
+        <h5>Select folder</h5>
+
+        <div class="filebrowser">
+          <h4 class="clearfix" style="padding-left: 5px;">
+            <a href="" class="btn btn-warning" ng-click="$event.stopPropagation();selectCurrentFolder()">Select</a>
+            <b>{{currentPath}}</b>
+          </h4>
+          <ul class="scrollbar-3" ng-if="currentFolders">
+            <li ng-if="currentPath != '/'">
+              <a href="" ng-click="$event.stopPropagation();browseFolder(folder.path+'..')">..</a>
+            </li>
+            <li ng-repeat="folder in currentFolders">
+              <a href="" ng-click="$event.stopPropagation();browseFolder(folder.path)"><i class="fa fa-folder fa-fw" style="color: #5bc0de;"></i> {{folder.name}}</a>
+            </li>
+            <li ng-repeat="file in currentFiles">
+              <a href=""><i class="fa fa-file fa-fw"></i> {{file.name}}</a>
+            </li>
+          </ul>
+        </div>
+
+      </div><!-- mml-dialog-content -->
+    </div><!-- mml-dialog -->
+
+    <!-- remove-photo-dialog -->
+    <div class="mml-dialog scrollbar-3" ng-show="photoRemoving" ng-click="photoRemoving = false;">
+      <div class="mml-dialog-content clearfix" ng-click="$event.stopPropagation();" style="max-width: 700px;">
+        <p>Remove <b>{{photo.name}}</b> from database ?</p>
+        <div style="float: right;">
+          <a href="" class="btn btn-warning" ng-click="removeCurrentPhoto()" style="display: inline-block;" 
+            title="Original file won't be removed">OK</a> 
+          <a href="" class="btn btn-default" ng-click="photoRemoving = false;" style="display: inline-block;">Cancel</a>
+        </div>
+        <a href="" class="btn btn-danger" ng-click="removeCurrentPhoto(true)" style="display: inline-block;" 
+          title="Original file will be removed from both disk and database">Remove from disk</a> 
+      </div><!-- mml-dialog-content -->
+    </div><!-- mml-dialog -->
+
+  </div><!-- container -->
+
+  <div growl limit-messages="5"></div>
+
+  <!-- <script src="libs/jquery/dist/jquery.min.js"></script> -->
+  <script src="libs/angular/angular.js"></script>
+  <script src="libs/angular-sanitize/angular-sanitize.js"></script>
+  <script src="libs/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+  <script src="libs/angular-growl-v2/build/angular-growl.min.js"></script>
+  <script src="libs/ngInfiniteScroll/build/ng-infinite-scroll.min.js"></script>
+  <script src="libs/socket.io-client/dist/socket.io.slim.js"></script>
+  <script src="libs/angular-socket-io/socket.min.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/mainController.js"></script>
+  <script src="js/dbService.js"></script>
+  <script src="js/importService.js"></script>
+</body>
+</html>

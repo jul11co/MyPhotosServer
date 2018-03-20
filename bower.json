@@ -1,0 +1,17 @@
+{
+  "name": "MyPhotosServer",
+  "version": "0.0.1",
+  "dependencies": {
+    "angular-growl-v2": "^0.7.9",
+    "ngInfiniteScroll": "^1.3.0",
+    "angular-tooltips": "^1.1.4",
+    "bootstrap": "^3.3.6",
+    "angular": "^1.5.7",
+    "angular-bootstrap": "^1.3.3",
+    "angular-sanitize": "^1.5.7",
+    "font-awesome": "^4.6.3",
+    "angular-socket-io": "^0.7.0",
+    "socket.io": "^2.0.3",
+    "socket.io-client": "^2.0.3"
+  }
+}
