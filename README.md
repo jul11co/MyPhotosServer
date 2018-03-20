@@ -1,15 +1,15 @@
 # MyPhotosServer
 
-Manage personal collection of photos
+Browse personal collection of photos
 
 ### Install
 
 #### This package
 
 ```bash
+bower install
 npm install
 npm link
-bower install
 ```
 
 #### ImageMagick
